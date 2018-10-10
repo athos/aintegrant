@@ -1,4 +1,5 @@
 (ns aintegrant.core
+  (:refer-clojure :exclude [run!])
   (:require [integrant.core :as ig]))
 
 (defmulti init-key
@@ -33,13 +34,51 @@
 (defn- exec-async [f]
   (f))
 
-(defn- wrap-callback [callback]
+(defn- wrap-run-callback [callback]
+  (fn
+    ([] (callback nil))
+    ([err] (callback err))))
+
+(defn- try-run-action [system completed remaining f k callback]
+  (let [callback' (wrap-run-callback callback)
+        v (system k)]
+    (try
+      (f k v callback')
+      (catch Throwable t
+        (callback t)))))
+
+(defn- run-loop [system keys f callback]
+  (letfn [(step [completed remaining]
+            (if (seq remaining)
+              (let [k (first remaining)]
+                (exec-async
+                 #(try-run-action system completed remaining f k
+                                  (fn [err]
+                                    (if err
+                                      (callback err)
+                                      (step (cons k completed)
+                                            (rest remaining)))))))
+              (callback nil)))]
+    (step '() keys)))
+
+(defn run! [system keys f callback]
+  {:pre [(map? system) (some-> system meta ::ig/origin)]}
+  (let [keys' (#'ig/dependent-keys (#'ig/system-origin system) keys)]
+    (run-loop system keys' f callback)))
+
+(defn reverse-run! [system keys f callback]
+  {:pre [(map? system) (some-> system meta ::ig/origin)]}
+  (let [keys' (#'ig/reverse-dependent-keys (#'ig/system-origin system) keys)]
+    (run-loop system keys' f callback)
+    nil))
+
+(defn- wrap-build-callback [callback]
   (fn
     ([ret] (callback nil ret))
     ([err ret] (callback err ret))))
 
 (defn- try-build-action [system f k v callback]
-  (let [callback' (wrap-callback callback)]
+  (let [callback' (wrap-build-callback callback)]
     (try
       (f k v callback')
       (catch Throwable t
@@ -87,7 +126,7 @@
    (halt! system (keys system) callback))
   ([system keys callback]
    {:pre [(map? system) (some-> system meta ::ig/origin)]}
-   nil))
+   (reverse-run! system keys halt-key! callback)))
 
 (defn resume
   ([config system callback]
@@ -106,4 +145,4 @@
    (suspend! system (keys system) callback))
   ([system keys callback]
    {:pre [(map? system) (some-> system meta ::ig/origin)]}
-   nil))
+   (reverse-run! system keys suspend-key! callback)))
