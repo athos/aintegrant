@@ -1,6 +1,7 @@
 (ns aintegrant.core
   (:refer-clojure :exclude [run!])
-  (:require [integrant.core :as ig]))
+  (:require [aintegrant.async :as async]
+            [integrant.core :as ig]))
 
 (defmulti init-key
   {:arglists '([key value callback])}
@@ -31,9 +32,6 @@
 (defmethod suspend-key! :default [k v callback]
   (halt-key! k v callback))
 
-(defn- exec-async [f]
-  (f))
-
 (defn- wrap-run-callback [callback]
   (fn
     ([] (callback nil))
@@ -51,14 +49,14 @@
   (letfn [(step [completed remaining]
             (if (seq remaining)
               (let [k (first remaining)]
-                (exec-async
-                 #(try-run-action system completed remaining f k
-                                  (fn [err]
-                                    (if err
-                                      (callback err)
-                                      (step (cons k completed)
-                                            (rest remaining)))))))
-              (callback nil)))]
+                (-> (async/exec (partial try-run-action system completed remaining f k))
+                    (async/then (fn [err _]
+                                  (if err
+                                    (callback err)
+                                    (step (cons k completed)
+                                          (rest remaining)))))))
+              (-> (async/exec (fn [callback] (callback nil)))
+                  (async/then (fn [err _] (callback err))))))]
     (step '() keys)))
 
 (defn run! [system keys f callback]
@@ -102,13 +100,13 @@
   ([config keys f assertf callback]
    (letfn [(step [system [kv & kvs]]
              (if kv
-               (exec-async
-                #(build-key f assertf system kv
-                            (fn [err system]
-                              (if err
-                                (callback err nil)
-                                (step system kvs)))))
-               (callback nil system)))]
+               (-> (async/exec (partial build-key f assertf system kv))
+                   (async/then (fn [err system]
+                                 (if err
+                                   (callback err nil)
+                                   (step system kvs)))))
+               (-> (async/exec (fn [callback] (callback nil system)))
+                   (async/then callback))))]
      (let [relevant-keys   (#'ig/dependent-keys config keys)]
        (step (with-meta {} {::ig/origin config})
              (map (fn [k] [k (config k)]) relevant-keys))
