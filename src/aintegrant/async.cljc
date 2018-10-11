@@ -8,16 +8,23 @@
 (defprotocol AsyncTask
   (-then [this resolve reject]))
 
-(extend-protocol AsyncTask
-  #?@(:clj
-      [CompletableFuture
+#?(:clj
+   (extend-protocol AsyncTask
+     CompletableFuture
+     (-then [this resolve reject]
+       (let [consumer (reify BiConsumer
+                        (accept [this ret err]
+                          (if err
+                            (reject err)
+                            (resolve ret))))]
+         (.whenCompleteAsync this consumer)))))
+
+#?(:cljs
+   (when (exists? js/Promise)
+     (extend-protocol AsyncTask
+       js/Promise
        (-then [this resolve reject]
-              (let [consumer (reify BiConsumer
-                               (accept [this ret err]
-                                 (if err
-                                   (reject err)
-                                   (resolve ret))))]
-                (.whenCompleteAsync this consumer)))]))
+         (.then this resolve reject)))))
 
 (defn default-async-handler []
   #?(:clj
@@ -28,7 +35,12 @@
                        (f (fn [ret] (.complete ^CompletableFuture @fut ret))
                           (fn [err] (.completeExceptionally ^CompletableFuture @fut err))))]
            (deliver fut (CompletableFuture/runAsync thunk))
-           @fut)))))
+           @fut)))
+     :cljs
+     (when (exists? js/Promise)
+       (reify AsyncHandler
+         (-exec [this f]
+           (js/Promise. f))))))
 
 (def ^:private async-handler-impl
   (atom (default-async-handler)))
