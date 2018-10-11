@@ -23,11 +23,12 @@
   #?(:clj
      (reify AsyncHandler
        (-exec [this f]
-         (let [fut (atom nil)
+         (let [fut (promise)
                thunk (fn []
                        (f (fn [ret] (.complete ^CompletableFuture @fut ret))
                           (fn [err] (.completeExceptionally ^CompletableFuture @fut err))))]
-           (reset! fut (CompletableFuture/runAsync thunk)))))))
+           (deliver fut (CompletableFuture/runAsync thunk))
+           @fut)))))
 
 (def ^:private async-handler-impl
   (atom (default-async-handler)))
