@@ -42,7 +42,7 @@
         v (system k)]
     (try
       (f k v callback)
-      (catch Throwable t
+      (catch #?(:clj Throwable :cljs :default) t
         (reject t)))))
 
 (defn- run-loop [system keys f callback]
@@ -77,7 +77,7 @@
   (let [callback (wrap-build-callback resolve reject)]
     (try
       (f k v callback)
-      (catch Throwable t
+      (catch #?(:clj Throwable :cljs :default) t
         (reject t)))))
 
 (defn- build-key [f assertf system [k v] resolve reject]
