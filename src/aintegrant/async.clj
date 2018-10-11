@@ -1,32 +1,31 @@
 (ns aintegrant.async
-  (:import [java.util.concurrent Future]))
+  (:import [java.util.concurrent CompletableFuture]
+           [java.util.function BiConsumer]))
 
 (defprotocol AsyncHandler
   (-exec [this f]))
 
 (defprotocol AsyncTask
-  (-then [this callback]))
+  (-then [this resolve reject]))
 
 (extend-protocol AsyncTask
-  Future
-  (-then [this callback]
-    (try
-      (let [v @this]
-        (callback nil v))
-      (catch Throwable t
-        (callback t nil)))))
+  CompletableFuture
+  (-then [this resolve reject]
+    (let [consumer (reify BiConsumer
+                     (accept [this ret err]
+                       (if err
+                         (reject err)
+                         (resolve ret))))]
+      (.whenCompleteAsync this consumer))))
 
 (defn default-async-handler []
   (reify AsyncHandler
     (-exec [this f]
-      (future (f (fn
-                   ([err]
-                    (when err
-                      (throw err)))
-                   ([err ret]
-                    (when err
-                      (throw err))
-                    ret)))))))
+      (let [fut (atom nil)
+            thunk (fn []
+                    (f (fn [ret] (.complete ^CompletableFuture @fut ret))
+                       (fn [err] (.completeExceptionally ^CompletableFuture @fut err))))]
+        (reset! fut (CompletableFuture/runAsync thunk))))))
 
 (def ^:private async-handler-impl
   (atom (default-async-handler)))
@@ -41,5 +40,5 @@
 (defn exec [f]
   (-exec (async-handler) f))
 
-(defn then [task callback]
-  (-then task callback))
+(defn then [task resolve reject]
+  (-then task resolve reject))

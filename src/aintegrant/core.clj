@@ -32,31 +32,29 @@
 (defmethod suspend-key! :default [k v callback]
   (halt-key! k v callback))
 
-(defn- wrap-run-callback [callback]
+(defn- wrap-run-callback [resolve reject]
   (fn
-    ([] (callback nil))
-    ([err] (callback err))))
+    ([] (resolve nil))
+    ([err] (if err (reject err) (resolve nil)))))
 
-(defn- try-run-action [system completed remaining f k callback]
-  (let [callback' (wrap-run-callback callback)
+(defn- try-run-action [system completed remaining f k resolve reject]
+  (let [callback (wrap-run-callback resolve reject)
         v (system k)]
     (try
-      (f k v callback')
+      (f k v callback)
       (catch Throwable t
-        (callback t)))))
+        (reject t)))))
 
 (defn- run-loop [system keys f callback]
   (letfn [(step [completed remaining]
             (if (seq remaining)
               (let [k (first remaining)]
                 (-> (async/exec (partial try-run-action system completed remaining f k))
-                    (async/then (fn [err _]
-                                  (if err
-                                    (callback err)
-                                    (step (cons k completed)
-                                          (rest remaining)))))))
-              (-> (async/exec (fn [callback] (callback nil)))
-                  (async/then (fn [err _] (callback err))))))]
+                    (async/then (fn [_]
+                                  (step (cons k completed)
+                                        (rest remaining)))
+                                (fn [err] (callback err)))))
+              (async/exec (fn [_ _] (callback nil)))))]
     (step '() keys)))
 
 (defn run! [system keys f callback]
@@ -70,29 +68,27 @@
     (run-loop system keys' f callback)
     nil))
 
-(defn- wrap-build-callback [callback]
+(defn- wrap-build-callback [resolve reject]
   (fn
-    ([ret] (callback nil ret))
-    ([err ret] (callback err ret))))
+    ([ret] (resolve ret))
+    ([err ret] (if err (reject err) (resolve ret)))))
 
-(defn- try-build-action [system f k v callback]
-  (let [callback' (wrap-build-callback callback)]
+(defn- try-build-action [system f k v resolve reject]
+  (let [callback (wrap-build-callback resolve reject)]
     (try
-      (f k v callback')
+      (f k v callback)
       (catch Throwable t
-        (callback t nil)))))
+        (reject t)))))
 
-(defn- build-key [f assertf system [k v] callback]
+(defn- build-key [f assertf system [k v] resolve reject]
   (let [v' (#'ig/expand-key system v)]
     (assertf system k v)
-    (let [callback' (fn [err ret]
-                      (if err
-                        (callback err nil)
-                        (as-> system system
-                          (assoc system k ret)
-                          (vary-meta system assoc-in [::ig/build k] v')
-                          (callback nil system))))]
-      (try-build-action system f k v' callback'))))
+    (let [resolve' (fn [ret]
+                     (as-> system system
+                       (assoc system k ret)
+                       (vary-meta system assoc-in [::ig/build k] v')
+                       (resolve system)))]
+      (try-build-action system f k v' resolve' reject))))
 
 (defn build
   ([config keys f callback]
@@ -101,12 +97,9 @@
    (letfn [(step [system [kv & kvs]]
              (if kv
                (-> (async/exec (partial build-key f assertf system kv))
-                   (async/then (fn [err system]
-                                 (if err
-                                   (callback err nil)
-                                   (step system kvs)))))
-               (-> (async/exec (fn [callback] (callback nil system)))
-                   (async/then callback))))]
+                   (async/then (fn [system] (step system kvs))
+                               (fn [err] (callback err nil))))
+               (async/exec (fn [_ _] (callback nil system)))))]
      (let [relevant-keys   (#'ig/dependent-keys config keys)]
        (step (with-meta {} {::ig/origin config})
              (map (fn [k] [k (config k)]) relevant-keys))
