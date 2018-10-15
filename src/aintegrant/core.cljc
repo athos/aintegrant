@@ -55,7 +55,8 @@
                                         (rest remaining)))
                                 (fn [err] (callback err)))))
               (async/exec (fn [_ _] (callback nil)))))]
-    (step '() keys)))
+    (step '() keys)
+    nil))
 
 (defn run! [system keys f callback]
   {:pre [(map? system) (some-> system meta ::ig/origin)]}
@@ -65,8 +66,7 @@
 (defn reverse-run! [system keys f callback]
   {:pre [(map? system) (some-> system meta ::ig/origin)]}
   (let [keys' (#'ig/reverse-dependent-keys (#'ig/system-origin system) keys)]
-    (run-loop system keys' f callback)
-    nil))
+    (run-loop system keys' f callback)))
 
 (defn- wrap-build-callback [resolve reject]
   (fn
