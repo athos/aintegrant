@@ -1,4 +1,4 @@
-(defproject aintegrant "0.6.3-SNAPSHOT"
+(defproject aintegrant "0.1.0-SNAPSHOT"
   :description "Aintegrant ain't Integrant, it's Async Integrant!"
   :url "https://github.com/athos/aintegrant"
   :license {:name "Eclipse Public License"
