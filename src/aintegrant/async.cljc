@@ -2,7 +2,7 @@
   #?(:clj (:import [java.util.concurrent CompletableFuture]
                    [java.util.function BiConsumer])))
 
-(defprotocol AsyncHandler
+(defprotocol AsyncExecutor
   (-exec [this f]))
 
 (defprotocol AsyncTask
@@ -26,9 +26,9 @@
        (-then [this resolve reject]
          (.then this resolve reject)))))
 
-(defn default-async-handler []
+(defn default-async-executor []
   #?(:clj
-     (reify AsyncHandler
+     (reify AsyncExecutor
        (-exec [this f]
          (let [fut (promise)
                thunk (fn []
@@ -38,22 +38,22 @@
            @fut)))
      :cljs
      (when (exists? js/Promise)
-       (reify AsyncHandler
+       (reify AsyncExecutor
          (-exec [this f]
            (js/Promise. f))))))
 
-(def ^:private async-handler-impl
-  (atom (default-async-handler)))
+(def ^:private async-executor-impl
+  (atom (default-async-executor)))
 
-(defn async-handler []
-  @async-handler-impl)
+(defn async-executor []
+  @async-executor-impl)
 
-(defn set-async-handler! [handler]
-  (assert (satisfies? AsyncHandler handler))
-  (reset! async-handler-impl handler))
+(defn set-async-executor! [executor]
+  (assert (satisfies? AsyncExecutor executor))
+  (reset! async-executor-impl executor))
 
 (defn exec [f]
-  (-exec (async-handler) f))
+  (-exec (async-executor) f))
 
 (defn then [task resolve reject]
   (-then task resolve reject))
