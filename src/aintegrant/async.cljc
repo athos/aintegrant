@@ -11,7 +11,8 @@
   (atom (default-async-executor)))
 
 (defn async-executor []
-  @async-executor-impl)
+  (or @async-executor-impl
+      (throw (ex-info "No implementation of async executor was found on your environment" {}))))
 
 (defn set-async-executor! [executor]
   (assert (satisfies? async/AsyncExecutor executor))
