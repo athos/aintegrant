@@ -2,11 +2,11 @@
   (:require [aintegrant.async.core :as async]))
 
 (def promise-async-executor
-  (when (exists? js/Promise)
-    (fn []
-      (reify async/AsyncExecutor
-        (-exec [this f]
-          (js/Promise. f))))))
+  (let [executor (when (exists? js/Promise)
+                   (reify async/AsyncExecutor
+                     (-exec [this f]
+                       (js/Promise. f))))]
+    (fn [] executor)))
 
 (when (exists? js/Promise)
   (extend-protocol async/AsyncTask
