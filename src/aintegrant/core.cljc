@@ -137,3 +137,7 @@
   ([system keys callback]
    {:pre [(map? system) (some-> system meta ::ig/origin)]}
    (reverse-run! system keys suspend-key! callback)))
+
+(defn set-async-executor! [executor]
+  (async/set-async-executor! executor)
+  nil)
