@@ -31,7 +31,7 @@
 (defmethod ag/init-key ::k [_ v callback] (callback v))
 (defmethod ag/init-key ::n [_ v callback] (callback (inc v)))
 
-(defmethod ag/halt-key! :default [k v callback]
+(defmethod ig/halt-key! :default [k v]
   (swap! log conj [:halt k v]))
 
 (defmethod ag/halt-key! ::error-halt1 [_ _ callback]
@@ -94,3 +94,74 @@
                        :a/a3 [{}] :a/a4 [{}] :a/a5 [{}]
                        :a/a6 [{}] :a/a7 [{}] :a/a8 [{}]
                        :a/a9 [{}] :a/a10 [{}]}))))))
+
+(deftest halt-test
+  (testing "without keys"
+    (reset! log [])
+    (ag/init {::a (ig/ref ::b), ::b 1}
+             (fn [err m]
+               (is (nil? err))
+               (ag/halt! m
+                         (fn [err]
+                           (is (nil? err))
+                           (is (= @log [[:init ::b 1]
+                                        [:init ::a [1]]
+                                        [:halt ::a [[1]]]
+                                        [:halt ::b [1]]])))))))
+
+  (testing "with keys"
+    (reset! log [])
+    (ag/init {::a (ig/ref ::b), ::b (ig/ref ::c), ::c 1}
+             (fn [err m]
+               (is (nil? err))
+               (ag/halt! m [::a]
+                         (fn [err]
+                           (is (nil? err))
+                           (is (= @log [[:init ::c 1]
+                                        [:init ::b [1]]
+                                        [:init ::a [[1]]]
+                                        [:halt ::a [[[1]]]]]))
+                           (reset! log [])
+                           (ag/halt! m [::c]
+                                     (fn [err]
+                                       (is (nil? err))
+                                       (is (= @log [[:halt ::a [[[1]]]]
+                                                    [:halt ::b [[1]]]
+                                                    [:halt ::c [1]]])))))))))
+
+  (testing "with partial system"
+    (reset! log [])
+    (ag/init {::a 1, ::b (ig/ref ::a)} [::a]
+             (fn [err m]
+               (is (nil? err))
+               (ag/halt! m
+                         (fn [err]
+                           (is (nil? err))
+                           (is (= @log [[:init ::a 1]
+                                        [:halt ::a [1]]])))))))
+
+  (testing "with inherited keys"
+    (reset! log [])
+    (ag/init {::a (ig/ref ::p), ::p 1} [::a]
+             (fn [err m]
+               (is (nil? err))
+               (ag/halt! m [::pp]
+                         (fn [err]
+                           (is (nil? err))
+                           (is (= @log [[:init ::p 1]
+                                        [:init ::a [1]]
+                                        [:halt ::a [[1]]]
+                                        [:halt ::p [1]]])))))))
+
+  (testing "with composite keys"
+    (reset! log [])
+    (ag/init {::a (ig/ref ::b), [::x ::b] 1}
+             (fn [err m]
+               (is (nil? err))
+               (ag/halt! m
+                         (fn [err]
+                           (is (nil? err))
+                           (is (= @log [[:init [::x ::b] 1]
+                                        [:init ::a :x]
+                                        [:halt ::a [:x]]
+                                        [:halt [::x ::b] :x]]))))))))
