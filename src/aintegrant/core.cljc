@@ -121,14 +121,14 @@
 
 (defn resume
   ([config system callback]
-   (resume config system keys callback))
+   (resume config system (keys system) callback))
   ([config system keys callback]
    {:pre [(map? config) (map? system) (some-> system meta ::ig/origin)]}
    (build config keys
-          (fn [k v]
+          (fn [k v callback']
             (if (contains? system k)
-              (resume-key k v (-> system meta ::build (get k)) (system k))
-              (init-key k v)))
+              (resume-key k v (-> system meta ::ig/build (get k)) (system k) callback')
+              (init-key k v callback')))
           callback)))
 
 (defn suspend!
