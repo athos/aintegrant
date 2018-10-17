@@ -82,6 +82,28 @@
                (is (= @log [[:init ::a 1]
                             [:init ::p [1]]])))))
 
+  (testing "with composite keys"
+    (reset! log [])
+    (ag/init {::a (ig/ref ::b), [::x ::b] 1}
+             (fn [err m]
+               (is (nil? err))
+               (is (= m {::a [:x], [::x ::b] :x}))
+               (is (= @log [[:init [::x ::b] 1]
+                            [:init ::a :x]])))))
+
+  (testing "with composite refs"
+    (reset! log [])
+    (ag/init {::a (ig/ref [::b ::c]), [::b ::c ::e] 1, [::b ::d] 2}
+             (fn [err m]
+               (is (nil? err))
+               (is (= m {::a [[1]], [::b ::c ::e] [1], [::b ::d] [2]}))
+               (is (or (= @log [[:init [::b ::c ::e] 1]
+                                [:init ::a [1]]
+                                [:init [::b ::d] 2]])
+                       (= @log [[:init [::b ::d] 2]
+                                [:init [::b ::c ::e] 1]
+                                [:init ::a [1]]]))))))
+
   (testing "large config"
     (ag/init {:a/a1 {} :a/a2 {:_ (ig/ref :a/a1)}
               :a/a3 {} :a/a4 {} :a/a5 {}
