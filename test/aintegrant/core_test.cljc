@@ -40,16 +40,17 @@
 (defmethod ag/halt-key! ::error-halt2 [_ _ callback]
   (callback (ex-info "Testing" {:reason ::test}) nil))
 
-(defmethod ig/resume-key :default [k cfg cfg' sys]
+(defmethod ag/resume-key :default [k cfg cfg' sys callback]
   (swap! log conj [:resume k cfg cfg' sys])
-  [cfg])
+  (callback [cfg]))
 
 (defmethod ag/resume-key ::x [k cfg cfg' sys callback]
   (swap! log conj [:resume k cfg cfg' sys])
   (callback :rx))
 
-(defmethod ig/suspend-key! :default [k v]
-  (swap! log conj [:suspend k v]))
+(defmethod ag/suspend-key! :default [k v callback]
+  (swap! log conj [:suspend k v])
+  (callback))
 
 (derive ::p ::pp)
 (derive ::pp ::ppp)
@@ -187,3 +188,100 @@
                                         [:init ::a :x]
                                         [:halt ::a [:x]]
                                         [:halt [::x ::b] :x]]))))))))
+
+(deftest suspend-resume-test
+  (testing "same configuration"
+    (reset! log [])
+    (let [c  {::a (ig/ref ::b), ::b 1}]
+      (ag/init c
+               (fn [err1 m]
+                 (is (nil? err1))
+                 (ag/suspend! m
+                              (fn [err2]
+                                (is (nil? err2))
+                                (ag/resume c m
+                                           (fn [err3 m']
+                                             (is (nil? err3))
+                                             (is (= @log [[:init ::b 1]
+                                                          [:init ::a [1]]
+                                                          [:suspend ::a [[1]]]
+                                                          [:suspend ::b [1]]
+                                                          [:resume ::b 1 1 [1]]
+                                                          [:resume ::a [1] [1] [[1]]]]))))))))))
+
+  (testing "missing keys"
+    (reset! log [])
+    (let [c  {::a (ig/ref ::b), ::b 1}]
+      (ag/init c
+               (fn [err1 m]
+                 (is (nil? err1))
+                 (ag/suspend! m
+                              (fn [err2]
+                                (is (nil? err2))
+                                (ag/resume (dissoc c ::a) m
+                                           (fn [err3 m']
+                                             (is (nil? err3))
+                                             (is (= @log [[:init ::b 1]
+                                                          [:init ::a [1]]
+                                                          [:suspend ::a [[1]]]
+                                                          [:suspend ::b [1]]
+                                                          [:halt ::a [[1]]]
+                                                          [:resume ::b 1 1 [1]]]))))))))))
+
+  (testing "missing refs"
+    (reset! log [])
+    (let [c  {::a {:b (ig/ref ::b)}, ::b 1}]
+      (ag/init c
+               (fn [err1 m]
+                 (is (nil? err1))
+                 (ag/suspend! m
+                              (fn [err2]
+                                (is (nil? err2))
+                                (ag/resume {::a []} m
+                                           (fn [err3 m']
+                                             (is (nil? err3))
+                                             (is (= @log [[:init ::b 1]
+                                                          [:init ::a {:b [1]}]
+                                                          [:suspend ::a [{:b [1]}]]
+                                                          [:suspend ::b [1]]
+                                                          [:halt ::b [1]]
+                                                          [:resume ::a [] {:b [1]} [{:b [1]}]]]))))))))))
+
+  (testing "composite keys"
+    (reset! log [])
+    (let [c  {::a (ig/ref ::x), [::b ::x] 1}]
+      (ag/init c
+               (fn [err1 m]
+                 (is (nil? err1))
+                 (ag/suspend! m
+                              (fn [err2]
+                                (is (nil? err2))
+                                (ag/resume c m
+                                           (fn [err3 m']
+                                             (is (nil? err3))
+                                             (is (= @log [[:init [::b ::x] 1]
+                                                          [:init ::a :x]
+                                                          [:suspend ::a [:x]]
+                                                          [:suspend [::b ::x] :x]
+                                                          [:resume [::b ::x] 1 1 :x]
+                                                          [:resume ::a :rx :x [:x]]]))))))))))
+
+  (testing "resume key with dependencies"
+    (reset! log [])
+    (let [c  {::a {:b (ig/ref ::b)}, ::b 1}]
+      (ag/init c [::a]
+               (fn [err1 m]
+                 (is (nil? err1))
+                 (ag/suspend! m
+                              (fn [err2]
+                                (is (nil? err2))
+                                (ag/resume c m [::a]
+                                           (fn [err3 m']
+                                             (is (nil? err3))
+                                             (is (= @log
+                                                    [[:init ::b 1]
+                                                     [:init ::a {:b [1]}]
+                                                     [:suspend ::a [{:b [1]}]]
+                                                     [:suspend ::b [1]]
+                                                     [:resume ::b 1 1 [1]]
+                                                     [:resume ::a {:b [1]} {:b [1]} [{:b [1]}]]])))))))))))
