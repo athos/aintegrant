@@ -119,17 +119,35 @@
    {:pre [(map? system) (some-> system meta ::ig/origin)]}
    (reverse-run! system keys halt-key! callback)))
 
+(defn- halt-missing-keys! [config system keys callback]
+  (let [graph        (-> system meta ::origin ig/dependency-graph)
+        missing-keys (#'ig/missing-keys system (#'ig/dependent-keys config keys))]
+    (letfn [(step [[k & ks]]
+              (if k
+                (-> (async/exec #(halt-key! k (system k) (wrap-run-callback %1 %2)))
+                    (async/then (fn [_] (step ks))
+                                callback))
+                (async/exec (fn [_ _] (callback nil)))))]
+      (step missing-keys))))
+
 (defn resume
   ([config system callback]
    (resume config system (keys system) callback))
   ([config system keys callback]
    {:pre [(map? config) (map? system) (some-> system meta ::ig/origin)]}
-   (build config keys
-          (fn [k v callback']
-            (if (contains? system k)
-              (resume-key k v (-> system meta ::ig/build (get k)) (system k) callback')
-              (init-key k v callback')))
-          callback)))
+   (letfn [(cont [err]
+             (if err
+               (callback err)
+               (build config keys
+                      (fn [k v callback']
+                        (if (contains? system k)
+                          (resume-key k v
+                                      (-> system meta ::ig/build (get k))
+                                      (system k)
+                                      callback')
+                          (init-key k v callback')))
+                      callback)))]
+     (halt-missing-keys! config system keys cont))))
 
 (defn suspend!
   ([system callback]
