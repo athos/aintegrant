@@ -8,15 +8,21 @@
   async/AsyncTask
   (-then [this resolve reject]
     (let [{:keys [status result]} @state]
-      (if (= status :resolved)
-        (resolve result)
-        (reject result)))
+      (try
+        (if (= status :resolved)
+          (resolve result)
+          (reject result))
+        (catch #?(:clj Throwable :cljs :default) t
+          (reject t))))
     this))
 
 (defn sync-async-executor []
   (reify async/AsyncExecutor
     (-exec [this f]
       (let [task (->SyncTask (atom {}))]
-        (f (fn [ret] (swap! (:state task) assoc :status :resolved :result ret))
-           (fn [err] (swap! (:state task) assoc :status :rejected :result err)))
+        (try
+          (f (fn [ret] (swap! (:state task) assoc :status :resolved :result ret))
+             (fn [err] (swap! (:state task) assoc :status :rejected :result err)))
+          (catch #?(:clj Throwable :cljs :default) t
+            (swap! (:state task) assoc :status :rejected :result t)))
         task))))
