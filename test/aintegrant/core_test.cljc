@@ -285,3 +285,56 @@
                                                      [:suspend ::b [1]]
                                                      [:resume ::b 1 1 [1]]
                                                      [:resume ::a {:b [1]} {:b [1]} [{:b [1]}]]])))))))))))
+
+(deftest wrapped-exception-test
+  (testing "exception when building"
+    (letfn [(callback-for [key]
+              (fn [ex ret]
+                (is (nil? ret))
+                (is (some? ex))
+                (is (= (#?(:clj .getMessage :cljs ex-message) ex)
+                       (str "Error on key " key " when building system")))
+                (is (= (ex-data ex)
+                       {:reason   ::ig/build-threw-exception
+                        :system   {::a [1]}
+                        :function ag/init-key
+                        :key      key
+                        :value    [1]}))
+                (let [cause (#?(:clj .getCause :cljs ex-cause) ex)]
+                  (is (some? cause))
+                  (is (= (#?(:clj .getMessage :cljs ex-message) cause) "Testing"))
+                  (is (= (ex-data cause) {:reason ::test})))))]
+      (ag/init {::a 1, ::error-init1 (ig/ref ::a)} (callback-for ::error-init1))
+      (ag/init {::a 1, ::error-init2 (ig/ref ::a)} (callback-for ::error-init2))))
+
+  (testing "exception when running"
+    (letfn [(callback-for [key]
+              (fn [ex system]
+                (is (nil? ex))
+                (ag/halt! system
+                          (fn [ex]
+                            (is (some? ex))
+                            (is (= (#?(:clj .getMessage :cljs ex-message) ex)
+                                   (str "Error on key " key " when running system")))
+                            (is (= (ex-data ex)
+                                   {:reason         ::ig/run-threw-exception
+                                    :system         {::a [1], key [[1]], ::b [[[1]]], ::c [[[[1]]]]}
+                                    :completed-keys '(::c ::b)
+                                    :remaining-keys '(::a)
+                                    :function       ag/halt-key!
+                                    :key            key
+                                    :value          [[1]]}))
+                            (let [cause (#?(:clj .getCause :cljs ex-cause) ex)]
+                              (is (some? cause))
+                              (is (= (#?(:clj .getMessage :cljs ex-message) cause) "Testing"))
+                              (is (= (ex-data cause) {:reason ::test})))))))]
+      (ag/init {::a 1
+                ::error-halt1 (ig/ref ::a)
+                ::b (ig/ref ::error-halt1)
+                ::c (ig/ref ::b)}
+               (callback-for ::error-halt1))
+      (ag/init {::a 1
+                ::error-halt2 (ig/ref ::a)
+                ::b (ig/ref ::error-halt2)
+                ::c (ig/ref ::b)}
+               (callback-for ::error-halt2)))))
