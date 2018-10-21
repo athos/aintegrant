@@ -43,7 +43,7 @@
     (try
       (f k v callback)
       (catch #?(:clj Throwable :cljs :default) t
-        (reject t)))))
+        (reject (#'ig/run-exception system completed remaining f k v t))))))
 
 (defn- run-loop [system keys f callback]
   (letfn [(step [completed remaining]
@@ -78,7 +78,7 @@
     (try
       (f k v callback)
       (catch #?(:clj Throwable :cljs :default) t
-        (reject t)))))
+        (reject (#'ig/build-exception system f k v t))))))
 
 (defn- build-key [f assertf system [k v] resolve reject]
   (let [v' (#'ig/expand-key system v)]
