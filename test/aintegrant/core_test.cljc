@@ -38,7 +38,7 @@
   (throw (ex-info "Testing" {:reason ::test})))
 
 (defmethod ag/halt-key! ::error-halt2 [_ _ callback]
-  (callback (ex-info "Testing" {:reason ::test}) nil))
+  (callback (ex-info "Testing" {:reason ::test})))
 
 (defmethod ag/resume-key :default [k cfg cfg' sys callback]
   (swap! log conj [:resume k cfg cfg' sys])
