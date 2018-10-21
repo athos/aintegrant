@@ -38,12 +38,12 @@
     ([err] (if err (reject err) (resolve nil)))))
 
 (defn- try-run-action [system completed remaining f k resolve reject]
-  (let [callback (wrap-run-callback resolve reject)
-        v (system k)]
+  (let [v (system k)
+        reject' #(reject (#'ig/run-exception system completed remaining f k v %))]
     (try
-      (f k v callback)
+      (f k v (wrap-run-callback resolve reject'))
       (catch #?(:clj Throwable :cljs :default) t
-        (reject (#'ig/run-exception system completed remaining f k v t))))))
+        (reject' t)))))
 
 (defn- run-loop [system keys f callback]
   (letfn [(step [completed remaining]
@@ -74,11 +74,11 @@
     ([err ret] (if err (reject err) (resolve ret)))))
 
 (defn- try-build-action [system f k v resolve reject]
-  (let [callback (wrap-build-callback resolve reject)]
+  (let [reject' #(reject (#'ig/build-exception system f k v %))]
     (try
-      (f k v callback)
+      (f k v (wrap-build-callback resolve reject'))
       (catch #?(:clj Throwable :cljs :default) t
-        (reject (#'ig/build-exception system f k v t))))))
+        (reject' t)))))
 
 (defn- build-key [f assertf system [k v] resolve reject]
   (let [v' (#'ig/expand-key system v)]
