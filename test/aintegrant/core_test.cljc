@@ -8,7 +8,7 @@
 
 (t/use-fixtures :once
   (fn [f]
-    (ag/set-async-executor! (sync/sync-async-executor))
+    (ag/set-async-executor! (sync/sync-executor))
     (f)
     (ag/set-async-executor! (async/default-async-executor))))
 

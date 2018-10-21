@@ -16,7 +16,7 @@
           (reject t))))
     this))
 
-(defn sync-async-executor []
+(defn sync-executor []
   (reify async/AsyncExecutor
     (-exec [this f]
       (let [task (->SyncTask (atom {}))]
