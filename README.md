@@ -1,4 +1,5 @@
 # Aintegrant
+[![Clojars Project](https://img.shields.io/clojars/v/aintegrant.svg)](https://clojars.org/aintegrant)
 
 Aintegrant ain't Integrant, it's Async Integrant!
 
@@ -9,6 +10,12 @@ such as Web API call, resource fetch or file I/O (on Node.js). Aintegrant will w
 Also, Aintegrant is completely compatible with Integrant: Initialization code for Integrant
 perfectly runs via Aintegrant, and migration for turning some of the initialization asynchronous
 usually takes just a little effort.
+
+## Installation
+
+Add the following to the `:dependencies` in your `project.clj` or `build.boot`:
+
+[![Clojars Project](https://clojars.org/aintegrant/latest-version.svg)](http://clojars.org/aintegrant)
 
 ## Usage
 
