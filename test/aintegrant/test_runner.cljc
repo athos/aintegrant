@@ -1,5 +1,6 @@
 (ns aintegrant.test-runner
-  (:require aintegrant.core-test
+  (:require aintegrant.async-test
+            aintegrant.core-test
             [clojure.test :as t]))
 
 (defn exit-with [{:keys [fail error]}]
@@ -12,5 +13,6 @@
      (exit-with summary)))
 
 (defn -main []
-  (let [summary (t/run-tests 'aintegrant.core-test)]
+  (let [summary (t/run-tests 'aintegrant.async-test
+                             'aintegrant.core-test)]
     #?(:clj (exit-with summary))))
