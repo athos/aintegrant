@@ -1,6 +1,6 @@
 (ns aintegrant.core-test
-  (:require [aintegrant.async.sync :as sync]
-            [aintegrant.async :as async]
+  (:require [aintegrant.async :as async]
+            [aintegrant.async.serial :as serial]
             [aintegrant.core :as ag]
             [clojure.test :as t :refer [deftest is testing]]
             [integrant.core :as ig]))
@@ -8,7 +8,7 @@
 
 (t/use-fixtures :once
   (fn [f]
-    (ag/set-async-executor! (sync/sync-executor))
+    (ag/set-async-executor! (serial/serial-async-executor))
     (f)
     (ag/set-async-executor! (async/default-async-executor))))
 

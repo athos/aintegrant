@@ -1,10 +1,10 @@
-(ns aintegrant.async.sync
+(ns aintegrant.async.serial
   "This implementation of async executor is just for development or verifying
   the behaviors of the library; In fact, it will never execute tasks asynchronously
   at all. So, DO NOT use it for production."
   (:require [aintegrant.async.core :as async]))
 
-(defrecord SyncTask [state]
+(defrecord SerialAsyncTask [state]
   async/AsyncTask
   (-then [this resolve reject]
     (let [{:keys [status result]} @state]
@@ -16,10 +16,10 @@
           (reject t))))
     this))
 
-(defn sync-executor []
+(defn serial-async-executor []
   (reify async/AsyncExecutor
     (-exec [this f]
-      (let [task (->SyncTask (atom {}))]
+      (let [task (->SerialAsyncTask (atom {}))]
         (try
           (f (fn [ret] (swap! (:state task) assoc :status :resolved :result ret))
              (fn [err] (swap! (:state task) assoc :status :rejected :result err)))
