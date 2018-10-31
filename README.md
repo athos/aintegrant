@@ -11,6 +11,10 @@ Also, Aintegrant is completely compatible with Integrant: Initialization code fo
 perfectly runs via Aintegrant, and migration for turning some of the initialization asynchronous
 usually takes just a little effort.
 
+**Note:** Aintegrant focuses on the asynchronization of Integrant's app initialization facility, and NOT
+on the parallelization of that (at least for now). So, each component's `init-key`/`halt-key!` etc.
+is always performed one by one.
+
 ## Installation
 
 Add the following to the `:dependencies` in your `project.clj` or `build.boot`:
