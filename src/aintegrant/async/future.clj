@@ -9,8 +9,11 @@
     (-exec [this f]
       (let [fut (promise)
             thunk (fn []
-                    (f (fn [ret] (.complete ^CompletableFuture @fut ret))
-                       (fn [err] (.completeExceptionally ^CompletableFuture @fut err))))]
+                    (try
+                      (f (fn [ret] (.complete ^CompletableFuture @fut ret))
+                         (fn [err] (.completeExceptionally ^CompletableFuture @fut err)))
+                      (catch Throwable err
+                        (.completeExceptionally ^CompletableFuture @fut err))))]
         (deliver fut (CompletableFuture/runAsync thunk))
         @fut))))
 
