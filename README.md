@@ -1,6 +1,7 @@
 # Aintegrant
 [![Clojars Project](https://img.shields.io/clojars/v/aintegrant.svg)](https://clojars.org/aintegrant)
 [![CircleCI](https://circleci.com/gh/athos/aintegrant.svg?style=shield)](https://circleci.com/gh/athos/aintegrant)
+[![codecov](https://codecov.io/gh/athos/aintegrant/branch/master/graph/badge.svg)](https://codecov.io/gh/athos/aintegrant)
 
 Aintegrant ain't Integrant, it's Async Integrant!
 
