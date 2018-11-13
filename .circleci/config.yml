@@ -17,7 +17,7 @@ jobs:
       - restore_cache:
           key: v1-dependencies-{{ checksum "deps.edn" }}
 
-      - run: clojure -A:check:test -Stree
+      - run: clojure -A:check:test:coverage -Stree
 
       - save_cache:
           paths:
@@ -32,3 +32,9 @@ jobs:
       - run:
           name: test CLJS
           command: clojure -Atest:test-cljs
+
+      - run:
+          name: test coverage
+          command: |
+            clojure -A:test:coverage
+            bash <(curl -s https://codecov.io/bash)

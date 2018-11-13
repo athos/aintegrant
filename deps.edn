@@ -7,4 +7,6 @@
                    :main-opts ["-m" "clj-check.check"]}
            :test {:extra-paths ["test"]
                   :main-opts ["-m" "aintegrant.test-runner"]}
-           :test-cljs {:main-opts ["-m" "cljs.main" "-re" "node" "-m" "aintegrant.test-runner"]}}}
+           :test-cljs {:main-opts ["-m" "cljs.main" "-re" "node" "-m" "aintegrant.test-runner"]}
+           :coverage {:extra-deps {cloverage {:mvn/version "1.0.13"}}
+                      :main-opts ["-m" "aintegrant.test-coverage"]}}}
