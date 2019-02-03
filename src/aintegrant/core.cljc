@@ -137,7 +137,7 @@
    {:pre [(map? config) (map? system) (some-> system meta ::ig/origin)]}
    (letfn [(cont [err]
              (if err
-               (callback err)
+               (callback err nil)
                (build config keys
                       (fn [k v callback']
                         (if (contains? system k)
